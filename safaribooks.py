@@ -253,7 +253,7 @@ class SafariBooks:
                   "<dc:language>en-US</dc:language>\n" \
                   "<dc:date>{7}</dc:date>\n" \
                   "<dc:identifier id=\"bookid\">{0}</dc:identifier>\n" \
-                  "<meta name=\"cover\" content=\"{8}\"/>\n" \
+                  "<meta name=\"cover\" content=\"cover-image\"/>\n" \
                   "</metadata>\n" \
                   "<manifest>\n" \
                   "<item id=\"ncx\" href=\"toc.ncx\" media-type=\"application/x-dtbncx+xml\" />\n" \
@@ -898,6 +898,9 @@ class SafariBooks:
             manifest.append("<item id=\"style_{0:0>2}\" href=\"Styles/Style{0:0>2}.css\" "
                             "media-type=\"text/css\" />".format(i))
 
+        res = self.create_cover()
+        manifest.append("<item id=\"cover-image\" href=\"{0}\" media-type=\"image/png\" properties=\"cover-image\" />".format(res))
+
         authors = "\n".join("<dc:creator opf:file-as=\"{0}\" opf:role=\"aut\">{0}</dc:creator>".format(
             escape(aut["name"])
         ) for aut in self.book_info["authors"])
@@ -967,6 +970,28 @@ class SafariBooks:
             ", ".join(aut["name"] for aut in self.book_info["authors"]),
             navmap
         )
+
+    def create_cover(self):
+        response = self.requests_provider(self.api_url)
+        parsed = response.json()
+        for i in parsed['chapters']:
+            # very vulnerable as publishers may differ
+            if 'cover.' or 'Cover.' or 'titlepage.' in i:
+                cover_url = i
+                break
+
+        if cover_url:
+            cover_response = self.requests_provider(cover_url)
+            cover_parsed = cover_response.json()
+            imgAttrib = cover_parsed['images']
+            if imgAttrib:
+                lst2str = "".join(list(map(str, imgAttrib)))
+                return "Images/" + lst2str.split('/')[-1]
+            else:
+                return "Images/" + self.get_default_cover()
+        else: 
+            return "Images/" + self.get_default_cover()
+        
 
     def create_epub(self):
         open(os.path.join(self.BOOK_PATH, "mimetype"), "w").write("application/epub+zip")
